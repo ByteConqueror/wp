@@ -1,12 +1,11 @@
 require 'yaml'
-#----- -- ------ --- ---- --- ----- --- -- - - --------- -- -- 
 
-config_data = YAML.load_file('config.yml.example')
+config_data = YAML.load_file('config.yml')
 db_user = 'ByteConqueror'
 
 Vagrant.configure("2") do |config|
   config.vm.define "db" do |db|
-    db.vm.box = "generic/debian12"
+    db.vm.box = "debian/bookworm64"
     db.vm.network "private_network", ip: "192.168.77.100"
     db.vm.synced_folder ".", "/vagrant"
     db.vm.provision "shell", inline: <<-SHELL
@@ -30,7 +29,7 @@ Vagrant.configure("2") do |config|
    end
 
 config.vm.define "wordpress" do |wp|
-    wp.vm.box = "generic/debian12"
+    wp.vm.box = "debian/bookworm64"
     wp.vm.network "private_network", ip: "192.168.77.200"
     wp.vm.synced_folder ".", "/vagrant"
     wp.vm.provision "shell", inline: <<-SHELL
