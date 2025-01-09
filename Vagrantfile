@@ -6,7 +6,10 @@ db_password = config_data['mysql_password']
 
 Vagrant.configure("2") do |config|
   config.vm.define "wordpress" do |wp|
-    wp.vm.box = ENV['BOX'] || "debian/bookworm64"
+#    wp.vm.box = ENV['BOX'] || "debian/bookworm64"
+    wp.vm.box = ENV['BOX'] || "ubuntu/focal64"
+#    wp.vm.box = ENV['BOX'] || "centos/stream9"
+
 
     wp.vm.network "private_network", ip: "192.168.66.150"
     wp.vm.synced_folder ".", "/vagrant"
@@ -26,8 +29,8 @@ Vagrant.configure("2") do |config|
         systemctl enable mariadb
         systemctl start mariadb
       elif [ "$DISTRO" = "centos" ]; then
-        dnf update -y
-        dnf install -y mariadb-server httpd php php-mysqlnd wget tar
+        yum update -y
+        yum install -y mariadb-server httpd php php-mysqlnd wget tar
         systemctl enable mariadb
         systemctl start mariadb
       else
@@ -35,7 +38,6 @@ Vagrant.configure("2") do |config|
         exit 1
       fi
 
-      systemctl restart mariadb
 
       if ! mysql -e "USE wordpress;" 2>/dev/null; then
         echo "Database wordpress does not exist. Creating..."
@@ -61,9 +63,14 @@ Vagrant.configure("2") do |config|
         wget https://wordpress.org/latest.tar.gz -O /tmp/latest.tar.gz
         tar -xzf /tmp/latest.tar.gz -C /tmp
         cp -r /tmp/wordpress/* /var/www/html/
-        rm /var/www/html/index.html
-        chown -R www-data:www-data /var/www/html/
-      fi
+        fi
+
+      if [ "$DISTRO" = "debian" ] || [ "$DISTRO" = "ubuntu" ]; then
+          rm /var/www/html/index.html
+          chown -R www-data:www-data /var/www/html/
+        elif [ "$DISTRO" = "centos" ]; then
+          chown -R apache:apache /var/www/html/
+        fi
 
       cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
       sed -i "s/database_name_here/wordpress/" /var/www/html/wp-config.php
@@ -71,7 +78,13 @@ Vagrant.configure("2") do |config|
       sed -i "s/password_here/#{db_password}/" /var/www/html/wp-config.php
       sed -i "s/localhost/127.0.0.1/" /var/www/html/wp-config.php
 
+    if [ "$DISTRO" = "debian" ] || [ "$DISTRO" = "ubuntu" ]; then
       systemctl restart apache2
+    elif [ "$DISTRO" = "centos" ]; then
+      setsebool -P httpd_can_network_connect_db 1
+      systemctl restart httpd
+    fi
+      
     SHELL
   end
 end

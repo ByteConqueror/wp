@@ -1,1 +1,1 @@
-{"name":"debian/bookworm64","version":"12.20241217.1","provider":"virtualbox","directory":"boxes/debian-VAGRANTSLASH-bookworm64/12.20241217.1/amd64/virtualbox"}
+{"name":"ubuntu/focal64","version":"20240821.0.1","provider":"virtualbox","directory":"boxes/ubuntu-VAGRANTSLASH-focal64/20240821.0.1/virtualbox"}
