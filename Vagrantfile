@@ -1,50 +1,77 @@
 require 'yaml'
 
 config_data = YAML.load_file('config.yml')
-db_user = 'ByteConqueror'
+db_user = 'testroot'
+db_password = config_data['mysql_password']
 
 Vagrant.configure("2") do |config|
-  config.vm.define "db" do |db|
-    db.vm.box = "debian/bookworm64"
-    db.vm.network "private_network", ip: "192.168.77.100"
-    db.vm.synced_folder ".", "/vagrant"
-    db.vm.provision "shell", inline: <<-SHELL
-      apt-get update
-      apt-get install -y mariadb-server
-      systemctl enable mariadb
-      systemctl start mariadb
-      mysql -e "CREATE DATABASE wordpress;"
-      mysql -e "CREATE USER '#{db_user}'@'%' IDENTIFIED BY '#{config_data['mysql_password']}';"
-      mysql -e "GRANT ALL PRIVILEGES ON wordpress.* TO '#{db_user}'@'%';"
-      mysql -e "FLUSH PRIVILEGES;"
-      sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/mariadb.conf.d/50-server.cnf
-      systemctl restart mariadb
-      if [ -f /vagrant/dump_wordpress.sql ]; then
-        echo "Found dump_wordpress.sql, importing..."
-        mysql -u #{db_user} -p#{config_data['mysql_password']} wordpress < /vagrant/dump_wordpress.sql
-      else
-        echo "dump_wordpress.sql not found!"
-      fi
-    SHELL
-   end
+  config.vm.define "wordpress" do |wp|
+    wp.vm.box = ENV['BOX'] || "debian/bookworm64"
 
-config.vm.define "wordpress" do |wp|
-    wp.vm.box = "debian/bookworm64"
-    wp.vm.network "private_network", ip: "192.168.77.200"
+    wp.vm.network "private_network", ip: "192.168.66.150"
     wp.vm.synced_folder ".", "/vagrant"
+    wp.vm.provider "virtualbox" do |vb|
+      vb.memory = "2048"
+      vb.cpus = 2
+    end
+
     wp.vm.provision "shell", inline: <<-SHELL
-      apt-get update
-      apt-get install -y apache2 php php-mysql wget mariadb-client
-      wget https://wordpress.org/latest.tar.gz
-      tar -xzf latest.tar.gz
-      mv wordpress/* /var/www/html/
-      rm /var/www/html/index.html
-      chown -R www-data:www-data /var/www/html/
+      source /etc/os-release
+      DISTRO=$ID
+      echo "Detected distribution: $DISTRO"
+
+      if [ "$DISTRO" = "debian" ] || [ "$DISTRO" = "ubuntu" ]; then
+        apt-get update
+        apt-get install -y mariadb-server apache2 php php-mysql wget tar
+        systemctl enable mariadb
+        systemctl start mariadb
+      elif [ "$DISTRO" = "centos" ]; then
+        dnf update -y
+        dnf install -y mariadb-server httpd php php-mysqlnd wget tar
+        systemctl enable mariadb
+        systemctl start mariadb
+      else
+        echo "Unsupported distribution: $DISTRO"
+        exit 1
+      fi
+
+      systemctl restart mariadb
+
+      if ! mysql -e "USE wordpress;" 2>/dev/null; then
+        echo "Database wordpress does not exist. Creating..."
+        mysql -e "CREATE DATABASE wordpress;"
+        mysql -e "CREATE USER '#{db_user}'@'%' IDENTIFIED BY '#{db_password}';"
+        mysql -e "GRANT ALL PRIVILEGES ON wordpress.* TO '#{db_user}'@'%';"
+        mysql -e "FLUSH PRIVILEGES;"
+
+        if [ -f /vagrant/wordpress_dump.sql ]; then
+          echo "Found dump_wordpress.sql, importing..."
+          mysql -u #{db_user} -p#{db_password} wordpress < /vagrant/wordpress_dump.sql
+        else
+          echo "wordpress_dump.sql not found!"
+        fi
+      fi
+
+      if [ ! -d /var/www/html ]; then
+        mkdir -p /var/www/html
+      fi
+
+      if [ ! -f /var/www/html/wp-config-sample.php ]; then
+        echo "Downloading WordPress..."
+        wget https://wordpress.org/latest.tar.gz -O /tmp/latest.tar.gz
+        tar -xzf /tmp/latest.tar.gz -C /tmp
+        cp -r /tmp/wordpress/* /var/www/html/
+        rm /var/www/html/index.html
+        chown -R www-data:www-data /var/www/html/
+      fi
+
       cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
       sed -i "s/database_name_here/wordpress/" /var/www/html/wp-config.php
       sed -i "s/username_here/#{db_user}/" /var/www/html/wp-config.php
-      sed -i "s/password_here/#{config_data['mysql_password']}/" /var/www/html/wp-config.php
-      sed -i "s/localhost/192.168.77.100/" /var/www/html/wp-config.php
+      sed -i "s/password_here/#{db_password}/" /var/www/html/wp-config.php
+      sed -i "s/localhost/127.0.0.1/" /var/www/html/wp-config.php
+
+      systemctl restart apache2
     SHELL
   end
 end
