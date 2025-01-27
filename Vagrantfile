@@ -6,9 +6,9 @@ db_password = config_data['mysql_password']
 
 Vagrant.configure("2") do |config|
   config.vm.define "wordpress" do |wp|
-     wp.vm.box = ENV['BOX'] || "debian/bookworm64"
+    # wp.vm.box = ENV['BOX'] || "debian/bookworm64"
     # wp.vm.box = ENV['BOX'] || "ubuntu/jammy64"
-    # wp.vm.box = ENV['BOX'] || "centos/stream9"
+     wp.vm.box = ENV['BOX'] || "centos/stream9"
 
     wp.vm.network "private_network", ip: "192.168.66.150"
     wp.vm.synced_folder ".", "/vagrant"
@@ -86,6 +86,7 @@ Vagrant.configure("2") do |config|
         chown -R www-data:www-data /var/www/html/
       elif [ "$DISTRO" = "centos" ]; then
         chown -R apache:apache /var/www/html/
+        setsebool -P httpd_can_network_connect_db 1
       fi
 
       cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
