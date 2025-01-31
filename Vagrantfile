@@ -7,8 +7,8 @@ db_password = config_data['mysql_password']
 Vagrant.configure("2") do |config|
   config.vm.define "wordpress" do |wp|
     # wp.vm.box = ENV['BOX'] || "debian/bookworm64"
-    # wp.vm.box = ENV['BOX'] || "ubuntu/jammy64"
-     wp.vm.box = ENV['BOX'] || "centos/stream9"
+     wp.vm.box = ENV['BOX'] || "ubuntu/jammy64"
+    # wp.vm.box = ENV['BOX'] || "centos/stream9"
 
     wp.vm.network "private_network", ip: "192.168.66.150"
     wp.vm.synced_folder ".", "/vagrant"
@@ -28,7 +28,7 @@ Vagrant.configure("2") do |config|
 
       if [ "$DISTRO" = "debian" ] || [ "$DISTRO" = "ubuntu" ]; then
         apt-get update
-        apt-get install -y mariadb-server apache2 php php-mysql wget tar jq
+        apt-get install -y mariadb-server apache2 curl php php-mysql wget tar jq
         systemctl enable mariadb
         systemctl start mariadb
       elif [ "$DISTRO" = "centos" ]; then
